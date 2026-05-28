@@ -177,6 +177,7 @@ function AICopilot({ show, onClose }) {
     { role: 'ai', text: "Hello! I'm your AuditPilot AI assistant. I can help you with risk assessments, audit planning, and team assignments. What would you like to know?" }
   ]);
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
   const presets = [
     "Why is Indianapolis Parenteral Plant scored as high risk?",
     "Which AUs are currently out of control?",
@@ -189,15 +190,36 @@ function AICopilot({ show, onClose }) {
     "Who else could lead the Teva API audit?": "Current assignment: **Priya Sharma** (Match: 94%)\n\nAlternative Lead Auditor candidates:\n1. **Dr. Fatima Al-Rashid** — 11 years experience, Analytical & Chemistry skills, available Q1 (Match: 82%)\n2. **Dr. Anna Kowalski** — 16 years experience, QA & Regulatory expertise, available Q1 (Match: 76%)\n\nPriya Sharma remains the strongest match due to her API synthesis specialization and APAC regional experience.",
     "Show me key findings from the last Patheon audit": "Last audit: **June 10, 2024** — 3 findings documented:\n\n🔴 **Critical**: Media fill failure rate exceeding acceptance criteria (Status: CAPA In Progress)\n🔴 **Critical**: Inadequate deviation investigation root cause analysis (Status: Open)\n🟡 **Major**: Audit trail review not performed for electronic batch records (Status: CAPA In Progress)\n\nThe FDA subsequently issued OAI classification in August 2025 with 5 Form 483 observations."
   };
-  const handleSend = (text) => {
+  const mockReply = (q) => aiResponses[q] || "I've analyzed the data and here's what I found: Based on the current risk assessments and audit history, I'd recommend reviewing the detailed risk profile for the specific AU you're interested in. You can navigate to the Risk Assessment page for comprehensive analysis.";
+
+  const handleSend = async (text) => {
     const q = text || input;
-    if (!q.trim()) return;
-    setMessages(prev => [...prev, { role: 'user', text: q }]);
+    if (!q.trim() || loading) return;
+    const userMsg = { role: 'user', text: q };
+    const history = [...messages, userMsg];
+    setMessages(history);
     setInput('');
-    setTimeout(() => {
-      const response = aiResponses[q] || "I've analyzed the data and here's what I found: Based on the current risk assessments and audit history, I'd recommend reviewing the detailed risk profile for the specific AU you're interested in. You can navigate to the Risk Assessment page for comprehensive analysis.";
-      setMessages(prev => [...prev, { role: 'ai', text: response }]);
-    }, 800);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/chat/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: history.map(m => ({
+            role: m.role === 'ai' ? 'assistant' : 'user',
+            content: m.text,
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error('chat unavailable');
+      const data = await res.json();
+      setMessages(prev => [...prev, { role: 'ai', text: data.reply }]);
+    } catch {
+      // GenAI not configured / unreachable → fall back to built-in answers.
+      setMessages(prev => [...prev, { role: 'ai', text: mockReply(q) }]);
+    } finally {
+      setLoading(false);
+    }
   };
   if (!show) return null;
   return (
@@ -230,6 +252,16 @@ function AICopilot({ show, onClose }) {
             {m.text}
           </div>
         ))}
+        {loading && (
+          <div style={{
+            alignSelf: 'flex-start', maxWidth: '90%', padding: '10px 14px',
+            borderRadius: '14px 14px 14px 4px', background: 'var(--bg-primary)',
+            color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic',
+            border: '1px solid var(--border-color)',
+          }}>
+            Thinking…
+          </div>
+        )}
       </div>
       <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-color)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
@@ -244,6 +276,7 @@ function AICopilot({ show, onClose }) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()}
+            disabled={loading}
             placeholder="Ask about risk, audits, teams..."
             style={{
               flex: 1, padding: '8px 12px', borderRadius: 8,
@@ -252,7 +285,7 @@ function AICopilot({ show, onClose }) {
               color: 'var(--text-primary)',
             }}
           />
-          <button onClick={() => handleSend()} className="btn btn-ai btn-sm">Send</button>
+          <button onClick={() => handleSend()} disabled={loading} className="btn btn-ai btn-sm">{loading ? '…' : 'Send'}</button>
         </div>
       </div>
     </div>
