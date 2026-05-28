@@ -1,0 +1,8 @@
+---
+# Application as a Service global properties (PwC Workbench / AAAS)
+# Same pattern as https://github.com/pwc-be-adv-tc-cd/E-Learning
+ci_checks:
+  enabled: False
+  veracode: False
+helm_lint:
+  enabled: True

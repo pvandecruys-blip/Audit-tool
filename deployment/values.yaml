@@ -1,0 +1,149 @@
+# Default values — adapted from E-Learning (https://github.com/pwc-be-adv-tc-cd/E-Learning)
+apps:
+  - name: auditpilot
+    ingress: enabled
+    image:
+      build: true
+      name: auditpilot
+      path: .
+      port: 8080
+      repository: default
+      tag: default
+      experimentalBuild: true
+      compressedCache: true
+      useNewRun: true
+      snapshotMode: redo
+      languages:
+        - nodejs
+      # Use AAAS Artifactory mirror — avoids Docker Hub TOOMANYREQUESTS in Kaniko (see hosted-apps image docs).
+      build_args:
+        BASE_IMAGE: w00043-pwc-us-aaas-docker.artifacts-west.pwc.com/node:20-slim
+        # Next.js basePath/assetPrefix — must match the Workbench URL prefix
+        # (/{engagementId}/{release-name}-{app-name}). Build_args are passed
+        # to Kaniko before Helm templating, so this is a literal string.
+        # If you change releaseName, engagementId, or app name, update this.
+        BASE_PATH: /15a0acaf-3a2e-4b67-9988-9c1d94fe551f/auditpilot-main-auditpilot
+    volumes: true
+    volumesList:
+      - name: app-tmp
+        size: 256Mi
+        type: emptyDir
+        mountPath: "/tmp"
+      - name: app-home
+        size: 64Mi
+        type: emptyDir
+        mountPath: "/tmp/app-home"
+      - name: app-xdg
+        size: 32Mi
+        type: emptyDir
+        mountPath: "/tmp/app-xdg"
+      - name: app-cache
+        size: 128Mi
+        type: emptyDir
+        mountPath: "/app/.next/cache"
+    # Keep the engagement/release prefix so Next.js basePath matches.
+    # The trailing slash is mandated by the AAAS lint check; Next.js is
+    # configured with trailingSlash: true to stay aligned. `tpl`
+    # evaluates this at deploy time.
+    rewrite:
+      uri: '/{{ .Values.metadata.engagementId }}/{{ .Release.Name }}-auditpilot/'
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+# URI entry point for Workbench (no hostname). Max 63 chars after rendering.
+entrypoint: "https://{{ .Values.metadata.hostName }}/{{ .Values.metadata.engagementId }}/{{ $.Release.Name }}-{{ (index .Values.apps 0).name }}/"
+
+replicaCount: 2
+
+image:
+  repository: registry.workbench.pwc.com/auditpilot
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: auditpilot.workbench.pwc.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: "1"
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Runtime env: ConfigMap keys are injected via envFrom in templates/ksvc.yaml
+configMap:
+  - key: NODE_ENV
+    value: "production"
+  - key: NEXT_TELEMETRY_DISABLED
+    value: "1"
+
+# Vault keys — wrappingReplaced at deploy time (Workbench).
+# AuditPilot currently has no required secrets; placeholder kept for future
+# integrations (Veeva QMS, LabWare LIMS, OSIsoft PI, SAP S/4HANA).
+secrets: {}
+
+metadata:
+  engagementId: runtimeReplaced
+  hostName: runtimeReplaced
+  entraHostName: runtimeReplaced
+  commitHash: runtimeReplaced
+
+persistentLogging:
+  enabled: true
+
+# Set ciNumber to your workspace CI id (see Workbench onboarding).
+pipelineSettings:
+  - branch: main
+    ciNumber: CI00000000
+    veracode:
+      enabled: false
+
+# Entra ID authentication (mandatory migration by 30-05-2026)
+authentication:
+  entra: true

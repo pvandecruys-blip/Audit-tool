@@ -1,0 +1,16 @@
+.git
+.gitignore
+node_modules
+.next
+out
+npm-debug.log*
+yarn-debug.log*
+.env
+.env.*
+.cursor
+.vscode
+.claude
+deployment
+properties.yaml
+docker-compose.yml
+*.md
