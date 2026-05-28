@@ -3,7 +3,7 @@
 // Vercel Project Settings → Environment Variables (production):
 //   GENAI_API_KEY   - the PwC GenAI key (secret)
 //   GENAI_BASE_URL  - full chat-completions endpoint of the gateway
-//   GENAI_MODEL     - model id to use (e.g. gpt-4o, claude-3-5-sonnet, gemini-1.5-pro)
+//   GENAI_MODEL     - model id (e.g. vertex_ai.anthropic.claude-opus-4-6, gpt-4o)
 //
 // The gateway is assumed OpenAI-compatible. If the PwC gateway expects a
 // different auth header or body shape, adjust the marked section below.
@@ -17,7 +17,7 @@ Be concise, factual, and use the audit domain language. When you lack specific d
 export async function POST(req) {
   const apiKey = process.env.GENAI_API_KEY;
   const baseUrl = process.env.GENAI_BASE_URL;
-  const model = process.env.GENAI_MODEL || "gpt-4o";
+  const model = process.env.GENAI_MODEL || "vertex_ai.anthropic.claude-opus-4-6";
 
   // Not configured → tell the client so it can fall back to mock answers.
   if (!apiKey || !baseUrl) {
