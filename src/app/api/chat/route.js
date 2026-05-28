@@ -18,6 +18,13 @@ export async function POST(req) {
   const apiKey = process.env.GENAI_API_KEY;
   const baseUrl = process.env.GENAI_BASE_URL;
   const model = process.env.GENAI_MODEL || "vertex_ai.anthropic.claude-opus-4-6";
+  // Auth header is configurable so it can be tuned from Vercel env vars:
+  //   GENAI_AUTH_HEADER - header name (default "Authorization")
+  //   GENAI_AUTH_SCHEME - value prefix (default "Bearer"); set empty to send the raw key
+  const authHeader = process.env.GENAI_AUTH_HEADER || "Authorization";
+  const authScheme =
+    process.env.GENAI_AUTH_SCHEME === undefined ? "Bearer" : process.env.GENAI_AUTH_SCHEME;
+  const authValue = authScheme ? `${authScheme} ${apiKey}` : apiKey;
 
   // Not configured → tell the client so it can fall back to mock answers.
   if (!apiKey || !baseUrl) {
@@ -41,7 +48,7 @@ export async function POST(req) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        [authHeader]: authValue,
       },
       body: JSON.stringify({
         model,
